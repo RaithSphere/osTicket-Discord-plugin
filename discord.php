@@ -7,10 +7,11 @@ require_once(INCLUDE_DIR . 'class.osticket.php');
 require_once(INCLUDE_DIR . 'class.config.php');
 require_once(INCLUDE_DIR . 'class.format.php');
 require_once('config.php');
+require_once('discord.class.php');
 
-class TeamsPlugin extends Plugin {
+class DiscordPlugin extends Plugin {
 
-    var $config_class = "TeamsPluginConfig";
+    var $config_class = "DiscordPluginConfig";
 
     /**
      * The entrypoint of the plugin, keep short, always runs.
@@ -33,11 +34,11 @@ class TeamsPlugin extends Plugin {
         global $cfg;
         $type = 'Issue created: ';
         if (!$cfg instanceof OsticketConfig) {
-            error_log("Teams plugin called too early.");
+            error_log("Discord plugin called too early.");
             return;
         }
 
-        $this->sendToTeams($ticket, $type);
+        $this->sendTodiscord($ticket, $type);
     }
 
     /**
@@ -51,7 +52,7 @@ class TeamsPlugin extends Plugin {
         $type = 'Issue Updated: ';
         global $cfg;
         if (!$cfg instanceof OsticketConfig) {
-            error_log("Slack plugin called too early.");
+            error_log("Discord plugin called too early.");
             return;
         }
         if (!$entry instanceof MessageThreadEntry) {
@@ -72,11 +73,11 @@ class TeamsPlugin extends Plugin {
             return;
         }
 
-        $this->sendToTeams($ticket, $type, 'warning');
+        $this->sendTodiscord($ticket, $type, 'warning');
     }
 
     /**
-     * A helper function that sends messages to teams endpoints.
+     * A helper function that sends messages to discord endpoints.
      *
      * @global osTicket $ost
      * @global OsticketConfig $cfg
@@ -86,22 +87,23 @@ class TeamsPlugin extends Plugin {
      * @param string $colour
      * @throws \Exception
      */
-    function sendToTeams(Ticket $ticket, $type, $colour = 'good') {
+    function sendTodiscord(Ticket $ticket, $type, $colour = 'good') {
         global $ost, $cfg;
+        error_log("Running sendToDiscord");
         if (!$ost instanceof osTicket || !$cfg instanceof OsticketConfig) {
-            error_log("Teams plugin called too early.");
+            error_log("Discord plugin called too early.");
             return;
         }
-        $url = $this->getConfig()->get('teams-webhook-url');
+        $url = $this->getConfig()->get('discord-webhook-url');
         if (!$url) {
-            $ost->logError('Teams Plugin not configured', 'You need to read the Readme and configure a webhook URL before using this.');
+            $ost->logError('Discord Plugin not configured', 'You need to read the Readme and configure a webhook URL before using this.');
         }
 
         // Check the subject, see if we want to filter it.
-        $regex_subject_ignore = $this->getConfig()->get('teams-regex-subject-ignore');
+        $regex_subject_ignore = $this->getConfig()->get('discord-regex-subject-ignore');
         // Filter on subject, and validate regex:
         if ($regex_subject_ignore && preg_match("/$regex_subject_ignore/i", $ticket->getSubject())) {
-            $ost->logDebug('Ignored Message', 'Teams notification was not sent because the subject (' . $ticket->getSubject() . ') matched regex (' . htmlspecialchars($regex_subject_ignore) . ').');
+            $ost->logDebug('Ignored Message', 'Discord notification was not sent because the subject (' . $ticket->getSubject() . ') matched regex (' . htmlspecialchars($regex_subject_ignore) . ').');
             return;
         } else {
             error_log("$ticket_subject didn't trigger $regex_subject_ignore");
@@ -121,7 +123,7 @@ class TeamsPlugin extends Plugin {
                     'Content-Length: ' . strlen($payload))
             );
 
-            // Actually send the payload to Teams:
+            // Actually send the payload to discord:
             if (curl_exec($ch) === false) {
                 throw new \Exception($url . ' - ' . curl_error($ch));
             } else {
@@ -134,8 +136,7 @@ class TeamsPlugin extends Plugin {
                 }
             }
         } catch (\Exception $e) {
-            $ost->logError('Teams posting issue!', $e->getMessage(), true);
-            error_log('Error posting to Teams. ' . $e->getMessage());
+            error_log('Error posting to Discord. ' . $e->getMessage());
         } finally {
             curl_close($ch);
         }
@@ -217,38 +218,74 @@ class TeamsPlugin extends Plugin {
     private function createJsonMessage($ticket, $type = null, $color = 'AFAFAF')
     {
         global $cfg;
+        $timestamp = date("c", strtotime("now"));
         if ($ticket->isOverdue()) {
             $color = 'ff00ff';
         }
-        //Prepare message array to convert to json
-        $message = [
-            '@type' => 'MessageCard',
-            '@context' => 'https://schema.org/extensions',
-            'summary' => 'Ticket: ' . $ticket->getNumber(),
-            'themeColor' => $color,
-            'title' => $this->format_text($type . $ticket->getSubject()),
-            'sections' => [
-                [
-                    'activityTitle' => ($ticket->getName() ? $ticket->getName() : 'Guest ') . ' (sent by ' . $ticket->getEmail() . ')',
-                    'activitySubtitle' => $ticket->getUpdateDate(),
-                    'activityImage' => $this->get_gravatar($ticket->getEmail()),
-                ],
-            ],
-            'potentialAction' => [
-                [
-                    '@type' => 'OpenUri',
-                    'name' => 'View in osTicket',
-                    'targets' => [
-                        [
-                            'os' => 'default',
-                            'uri' => $cfg->getUrl() . '/scp/tickets.php?id=' . $ticket->getId(),
-                        ]
-                    ]
-                ]
-            ]
-        ];
 
-        return json_encode($message, JSON_UNESCAPED_SLASHES);
+        $message = [
+            // Username
+            "username" => "NeosVR OSTicket",
+
+            // Avatar URL.
+            // Uncoment to replace image set in webhook
+            "avatar_url" => $this->get_gravatar($ticket->getEmail()),
+
+            // Text-to-speech
+            "tts" => false,
+
+            // File upload
+            // "file" => "",
+
+            // Embeds Array
+            "embeds" => [
+                [
+                    // Embed Title
+                    "title" =>  $this->format_text($type . $ticket->getSubject()),
+
+                    // Embed Type
+                    "type" => "rich",
+
+                    // URL of title link
+                    "url" => $cfg->getUrl() . '/scp/tickets.php?id=' . $ticket->getId(),
+
+                    // Timestamp of embed must be formatted as ISO8601
+                    "timestamp" => $timestamp,
+
+                    // Embed left border color in HEX
+                    "color" => hexdec( "3366ff" ),
+
+                    // Additional Fields array
+                    "fields" => [
+                        [
+                            "name" => "Ticket Type",
+                            "value" => $ticket->getHelpTopic(),
+                            "inline" => true
+                        ]
+                        // Etc..
+                    ],
+
+                    // Footer
+                    "footer" => [
+                        "text" => $cfg->getUrl(),
+                        "icon_url" => $this->get_gravatar($ticket->getEmail()),
+                    ],
+
+
+                    // Thumbnail
+                    //"thumbnail" => [
+                    //    "url" => "https://ru.gravatar.com/userimage/28503754/1168e2bddca84fec2a63addb348c571d.jpg?size=400"
+                    //],
+
+                    // Author
+                    "author" => [
+                        "name" => "OSTicket",
+                        "url" => $this->get_gravatar($ticket->getEmail()),
+                    ],
+                ]
+            ]];
+
+        return json_encode($message, JSON_UNESCAPED_SLASHES  | JSON_UNESCAPED_UNICODE );
 
     }
 

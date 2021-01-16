@@ -18,7 +18,7 @@ This plugin uses CURL and was designed/tested with osTicket-1.10.1
 2. Now the plugin needs to be enabled & configured, so login to osTicket, select "Admin Panel" then "Manage -> Plugins" you should be seeing the list of currently installed plugins.
 3. Click on `Discord Notifier` and paste your Teams Endpoint URL into the box. 
 4. Click `Save Changes`! (If you get an error about curl, you will need to install the Curl module for PHP). 
-5. After that, go back to the list of plugins and tick the checkbox next to "MS Teams Notifier" and select the "Enable" button.
+5. After that, go back to the list of plugins and tick the checkbox next to "Discord Notifier" and select the "Enable" button.
 
 ## Test!
 Create a ticket!

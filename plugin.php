@@ -1,11 +1,11 @@
 <?php
 
 return array(
-    'id'          => 'osticket:teams',
+    'id'          => 'osticket:discord',
     'version'     => '0.1',
-    'name'        => 'Teams notifier',
-    'author'      => 'Ivan Pavlović',
-    'description' => 'Notify Teams on new ticket.',
-    'url'         => 'https://github.com/ipavlovi/osTicket-Microsoft-Teams-plugin',
-    'plugin'      => 'teams.php:TeamsPlugin',
+    'name'        => 'Discord notifier',
+    'author'      => 'RaithSphere',
+    'description' => 'Notify Discord on new ticket.',
+    'url'         => 'https://github.com/RaithSphere/osTicket-Discord-plugin',
+    'plugin'      => 'discord.php:DiscordPlugin',
 );
